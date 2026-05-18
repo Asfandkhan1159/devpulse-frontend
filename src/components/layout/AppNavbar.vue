@@ -49,11 +49,11 @@
 import { ref } from 'vue'
 import { useAuthStore } from '../../stores/auth'
 import { useRouter } from 'vue-router'
-const { logout } = useAuthStore()
+const authStore = useAuthStore()
 const router = useRouter()
 
-function handleLogout() {
-  logout()
+async function handleLogout() {
+  await authStore.logout()
   router.push('/login')
 }
 const items = ref([

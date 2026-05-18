@@ -26,27 +26,121 @@ function viewDashboard(projectId: number) {
 </script>
 
 <template>
-  <div class="p-8 flex flex-col gap-6">
-    <h1 class="text-2xl font-bold">Projects</h1>
+  <div class="projects">
+    <div class="projects-header">
+      <h1 class="projects-title">Projects</h1>
+      <p class="projects-subtitle">{{ projects.length }} connected repositories</p>
+    </div>
 
-    <div v-if="loading" class="flex justify-center">
-      <ProgressSpinner />
+    <div v-if="loading" class="loading-state">
+      <ProgressSpinner style="width: 32px; height: 32px" />
     </div>
 
     <Message v-else-if="error" severity="error">{{ error }}</Message>
 
-    <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      <Card v-for="project in projects" :key="project.id">
-        <template #title>{{ project.name }}</template>
-        <template #content>
-          <div class="flex flex-col gap-3">
-            <a :href="project.web_url" target="_blank" class="text-sm text-primary-400 hover:underline truncate">
-              {{ project.web_url }}
-            </a>
-            <Button label="View Dashboard" icon="pi pi-chart-bar" @click="viewDashboard(project.id)" />
-          </div>
-        </template>
-      </Card>
+    <div v-else class="projects-grid">
+      <div v-for="project in projects" :key="project.id" class="project-card">
+        <div class="project-card-header">
+          <i class="pi pi-gitlab project-icon" />
+          <span class="project-name">{{ project.name }}</span>
+        </div>
+        <a :href="project.web_url" target="_blank" class="project-url">
+          {{ project.web_url }}
+        </a>
+        <Button
+          label="View Dashboard"
+          icon="pi pi-chart-bar"
+          severity="secondary"
+          size="small"
+          @click="viewDashboard(project.id)"
+          class="project-btn"
+        />
+      </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.projects {
+  padding: 2rem 2.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.projects-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.projects-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.projects-subtitle {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.4);
+  margin: 0;
+}
+
+.projects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.project-card {
+  background: #111318;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: border-color 0.2s;
+}
+
+.project-card:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.project-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.project-icon {
+  font-size: 18px;
+  color: #e24646;
+}
+
+.project-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.project-url {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.35);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.project-url:hover {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.project-btn {
+  align-self: flex-start;
+  margin-top: 0.25rem;
+}
+</style>
