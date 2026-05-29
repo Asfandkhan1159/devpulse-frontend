@@ -2,9 +2,18 @@
 import { useMetricsStore } from '@/stores/metrics'
 import MetricCard from '@/components/metrics/MetricCard.vue'
 import { useMetrics } from '@/composables/useMetrics'
-const metricsStore = useMetricsStore()
 
+const metricsStore = useMetricsStore()
 const { projects, selectedProject, days, daysOptions, loadMetrics } = useMetrics()
+
+function formatDuration(hours: number): string {
+  if (hours === 0) return '0m'
+  const totalSeconds = hours * 3600
+  if (totalSeconds < 60) return `${Math.round(totalSeconds)}s`
+  const totalMinutes = hours * 60
+  if (totalMinutes < 60) return `${Math.round(totalMinutes)}m`
+  return `${Math.round(hours)}h`
+}
 </script>
 
 <template>
@@ -66,11 +75,7 @@ const { projects, selectedProject, days, daysOptions, loadMetrics } = useMetrics
       <MetricCard
         v-if="metricsStore.leadTime"
         title="Lead Time"
-        :value="
-          metricsStore.leadTime.average_lead_time_hours < 1
-            ? Math.round(metricsStore.leadTime.average_lead_time_hours * 60) + 'm'
-            : Math.round(metricsStore.leadTime.average_lead_time_hours) + 'h'
-        "
+        :value="formatDuration(metricsStore.leadTime.average_lead_time_hours)"
         label="Average lead time"
         icon="pi pi-clock"
         :performance="metricsStore.leadTime.performance"
@@ -88,11 +93,7 @@ const { projects, selectedProject, days, daysOptions, loadMetrics } = useMetrics
       <MetricCard
         v-if="metricsStore.mttr"
         title="Mean Time To Recovery"
-        :value="
-          metricsStore.mttr.avg_mttr < 1
-            ? Math.round(metricsStore.mttr.avg_mttr * 60) + 'm'
-            : Math.round(metricsStore.mttr.avg_mttr) + 'h'
-        "
+        :value="formatDuration(metricsStore.mttr.avg_mttr)"
         label="Average recovery time"
         icon="pi pi-wrench"
         :performance="metricsStore.mttr.performance"
