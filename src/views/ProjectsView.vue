@@ -1,24 +1,28 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import api from '@/services/api'
 
 const router = useRouter()
+const authStore = useAuthStore()
+
 const projects = ref<{ id: number; name: string; web_url: string; provider: string }[]>([])
 const loading = ref(false)
 const error = ref<string | null>(null)
 
-// Connect repo modal state
 const showModal = ref(false)
-const githubRepos = ref<
+const repos = ref<
   { id: number; name: string; full_name: string; html_url: string; private: boolean }[]
 >([])
 const reposLoading = ref(false)
 const reposError = ref<string | null>(null)
 const connectingRepoId = ref<number | null>(null)
 const connectedRepoIds = ref<Set<number>>(new Set())
+const isGitLab = ref(false)
 
-const WEBHOOK_URL = `${import.meta.env.VITE_FASTAPI_URL || 'https://5cb3-39-58-252-244.ngrok-free.app'}/webhooks/github`
+const GITHUB_WEBHOOK_URL = `${import.meta.env.VITE_FASTAPI_URL || 'https://devpulse-analytics.onrender.com'}/webhooks/github`
+const GITLAB_WEBHOOK_URL = `${import.meta.env.VITE_FASTAPI_URL || 'https://devpulse-analytics.onrender.com'}/webhooks/gitlab`
 
 async function loadProjects() {
   loading.value = true
@@ -36,16 +40,21 @@ async function openConnectModal() {
   showModal.value = true
   reposLoading.value = true
   reposError.value = null
+
+  const provider = (authStore.user as any)?.provider
+  isGitLab.value = provider === 'gitlab'
+
+  const reposEndpoint = isGitLab.value ? '/auth/gitlab/repos' : '/auth/github/repos'
+
   try {
     const [reposRes, connectedRes] = await Promise.all([
-      api.get('/auth/github/repos'),
+      api.get(reposEndpoint),
       api.get('/auth/connected-repos'),
     ])
-    githubRepos.value = reposRes.data
-    // Build a set of already-connected repo IDs
+    repos.value = reposRes.data
     connectedRepoIds.value = new Set(connectedRes.data.map((r: any) => Number(r.externalRepoId)))
   } catch (err: any) {
-    reposError.value = 'Failed to fetch GitHub repositories'
+    reposError.value = `Failed to fetch ${isGitLab.value ? 'GitLab' : 'GitHub'} repositories`
   } finally {
     reposLoading.value = false
   }
@@ -54,13 +63,15 @@ async function openConnectModal() {
 async function connectRepo(repo: { id: number; name: string; full_name: string }) {
   connectingRepoId.value = repo.id
   try {
-    await api.post('/auth/github/connect-repo', {
+    const endpoint = isGitLab.value ? '/auth/gitlab/connect-repo' : '/auth/github/connect-repo'
+    const webhookUrl = isGitLab.value ? GITLAB_WEBHOOK_URL : GITHUB_WEBHOOK_URL
+
+    await api.post(endpoint, {
       repoFullName: repo.full_name,
-      webhookUrl: WEBHOOK_URL,
+      webhookUrl,
       repoId: repo.id,
     })
     connectedRepoIds.value.add(repo.id)
-    // Refresh projects list in background
     await loadProjects()
   } catch (err: any) {
     alert(err.response?.data?.message || 'Failed to connect repository')
@@ -71,11 +82,15 @@ async function connectRepo(repo: { id: number; name: string; full_name: string }
 
 function closeModal() {
   showModal.value = false
-  githubRepos.value = []
+  repos.value = []
 }
 
 function viewDashboard(projectId: number) {
   router.push({ path: '/dashboard', query: { project_id: projectId } })
+}
+
+function getProviderIcon(provider: string) {
+  return provider === 'gitlab' ? 'pi pi-gitlab' : 'pi pi-github'
 }
 
 onMounted(loadProjects)
@@ -100,11 +115,10 @@ onMounted(loadProjects)
 
     <Message v-else-if="error" severity="error">{{ error }}</Message>
 
-    <!-- Empty state -->
     <div v-else-if="projects.length === 0" class="empty-state">
       <i class="pi pi-github empty-icon" />
       <p class="empty-title">No repositories connected</p>
-      <p class="empty-subtitle">Connect a GitHub repository to start tracking DORA metrics</p>
+      <p class="empty-subtitle">Connect a repository to start tracking DORA metrics</p>
       <button class="connect-btn" @click="openConnectModal">
         <i class="pi pi-plus" />
         Connect Repository
@@ -114,7 +128,7 @@ onMounted(loadProjects)
     <div v-else class="projects-grid">
       <div v-for="project in projects" :key="project.id" class="project-card">
         <div class="project-card-header">
-          <i class="pi pi-github project-icon" />
+          <i :class="getProviderIcon(project.provider)" class="project-icon" />
           <span class="project-name">{{ project.name }}</span>
         </div>
         <a :href="project.web_url" target="_blank" class="project-url">
@@ -131,14 +145,15 @@ onMounted(loadProjects)
       </div>
     </div>
 
-    <!-- Connect Repository Modal -->
     <Teleport to="body">
       <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
         <div class="modal">
           <div class="modal-header">
             <div>
               <h2 class="modal-title">Connect Repository</h2>
-              <p class="modal-subtitle">Select a GitHub repository to track</p>
+              <p class="modal-subtitle">
+                Select a {{ isGitLab ? 'GitLab' : 'GitHub' }} repository to track
+              </p>
             </div>
             <button class="modal-close" @click="closeModal">
               <i class="pi pi-times" />
@@ -155,7 +170,7 @@ onMounted(loadProjects)
 
           <div v-else class="repo-list">
             <div
-              v-for="repo in githubRepos"
+              v-for="repo in repos"
               :key="repo.id"
               class="repo-item"
               :class="{ 'repo-item--connected': connectedRepoIds.has(repo.id) }"
@@ -248,7 +263,6 @@ onMounted(loadProjects)
   padding: 3rem;
 }
 
-/* Empty state */
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -280,7 +294,6 @@ onMounted(loadProjects)
   margin: 0 0 0.5rem;
 }
 
-/* Projects grid */
 .projects-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
@@ -337,7 +350,6 @@ onMounted(loadProjects)
   margin-top: 0.25rem;
 }
 
-/* Modal */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -407,7 +419,6 @@ onMounted(loadProjects)
   font-size: 13px;
 }
 
-/* Repo list */
 .repo-list {
   overflow-y: auto;
   flex: 1;
