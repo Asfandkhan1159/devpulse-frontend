@@ -1,13 +1,27 @@
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useMetricsStore } from '@/stores/metrics'
+import api from '@/services/api'
 
 export function useMetrics() {
   const route = useRoute()
   const metricsStore = useMetricsStore()
 
-  const projectId = ref<number>(Number(route.query.project_id) || 1)
+  const projects = ref<{ id: number; name: string; provider: string }[]>([])
+  const selectedProject = ref<{ id: number; name: string; provider: string } | null>(null)
   const days = ref<number>(30)
+
+  //watch
+  watch(selectedProject, (newVal) => {
+    if (newVal) {
+      loadMetrics()
+    }
+  })
+  watch(days, () => {
+    if (selectedProject.value) {
+      loadMetrics()
+    }
+  })
 
   const daysOptions = [
     { label: 'Last 30 days', value: 30 },
@@ -15,18 +29,30 @@ export function useMetrics() {
     { label: 'Last 180 days', value: 180 },
   ]
 
+  async function loadProjects() {
+    const response = await api.get('/metrics/projects')
+    projects.value = response.data
+    if (route.query.project_id) {
+      selectedProject.value =
+        projects.value.find((p) => p.id === Number(route.query.project_id)) || null
+    }
+    if (selectedProject.value) {
+      loadMetrics()
+    }
+  }
+
   async function loadMetrics() {
-    await metricsStore.fetchMetrics(projectId.value, days.value)
+    if (!selectedProject.value) return
+    await metricsStore.fetchMetrics(selectedProject.value.id, days.value)
   }
 
   onMounted(() => {
-    if (route.query.project_id) {
-      loadMetrics()
-    }
+    loadProjects()
   })
 
   return {
-    projectId,
+    projects,
+    selectedProject,
     days,
     daysOptions,
     loadMetrics,

@@ -4,7 +4,7 @@ import MetricCard from '@/components/metrics/MetricCard.vue'
 import { useMetrics } from '@/composables/useMetrics'
 const metricsStore = useMetricsStore()
 
-const { projectId, days, daysOptions, loadMetrics } = useMetrics()
+const { projects, selectedProject, days, daysOptions, loadMetrics } = useMetrics()
 </script>
 
 <template>
@@ -15,7 +15,13 @@ const { projectId, days, daysOptions, loadMetrics } = useMetrics()
         <p class="dashboard-subtitle">Developer performance intelligence</p>
       </div>
       <div class="filter-bar">
-        <InputNumber v-model="projectId" placeholder="Project ID" :min="1" class="filter-input" />
+        <Select
+          v-model="selectedProject"
+          :options="projects"
+          optionLabel="name"
+          placeholder="Select project"
+          class="filter-select"
+        />
         <Select
           v-model="days"
           :options="daysOptions"
@@ -55,30 +61,42 @@ const { projectId, days, daysOptions, loadMetrics } = useMetrics()
         :label="metricsStore.deploymentFrequency.frequency_label"
         icon="pi pi-cloud-upload"
         :performance="metricsStore.deploymentFrequency.performance"
+        :sparkline="metricsStore.trends?.deployment_frequency"
       />
       <MetricCard
         v-if="metricsStore.leadTime"
         title="Lead Time"
-        :value="metricsStore.leadTime.average_lead_time_hours + 'h'"
+        :value="
+          metricsStore.leadTime.average_lead_time_hours < 1
+            ? Math.round(metricsStore.leadTime.average_lead_time_hours * 60) + 'm'
+            : Math.round(metricsStore.leadTime.average_lead_time_hours) + 'h'
+        "
         label="Average lead time"
         icon="pi pi-clock"
         :performance="metricsStore.leadTime.performance"
+        :sparkline="metricsStore.trends?.lead_time"
       />
       <MetricCard
         v-if="metricsStore.changeFailureRate"
         title="Change Failure Rate"
-        :value="metricsStore.changeFailureRate.failure_rate_percentage + '%'"
+        :value="Math.round(metricsStore.changeFailureRate.failure_rate_percentage) + '%'"
         label="Of deployments failed"
         icon="pi pi-exclamation-triangle"
         :performance="metricsStore.changeFailureRate.performance"
+        :sparkline="metricsStore.trends?.change_failure_rate"
       />
       <MetricCard
         v-if="metricsStore.mttr"
         title="Mean Time To Recovery"
-        :value="metricsStore.mttr.avg_mttr + 'h'"
+        :value="
+          metricsStore.mttr.avg_mttr < 1
+            ? Math.round(metricsStore.mttr.avg_mttr * 60) + 'm'
+            : Math.round(metricsStore.mttr.avg_mttr) + 'h'
+        "
         label="Average recovery time"
         icon="pi pi-wrench"
         :performance="metricsStore.mttr.performance"
+        :sparkline="metricsStore.trends?.mttr"
       />
     </div>
   </div>
@@ -121,7 +139,7 @@ const { projectId, days, daysOptions, loadMetrics } = useMetrics()
 
 .metrics-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1rem;
 }
 

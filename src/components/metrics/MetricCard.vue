@@ -9,11 +9,25 @@
     </div>
     <div class="metric-value">{{ props.value }}</div>
     <div class="metric-label">{{ props.label }}</div>
+    <div v-if="props.sparkline && props.sparkline.length > 0" class="sparkline-container">
+      <canvas ref="chartCanvas" height="40"></canvas>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
+import {
+  Chart,
+  LineController,
+  LineElement,
+  PointElement,
+  LinearScale,
+  CategoryScale,
+  Filler,
+} from 'chart.js'
+
+Chart.register(LineElement, LineController, PointElement, LinearScale, CategoryScale, Filler)
 
 const props = defineProps<{
   title: string
@@ -21,7 +35,11 @@ const props = defineProps<{
   label: string
   icon: string
   performance?: 'elite' | 'high' | 'medium' | 'low'
+  sparkline?: { date: string; value: number }[]
 }>()
+
+const chartCanvas = ref<HTMLCanvasElement | null>(null)
+let chartInstance: Chart | null = null
 
 const performanceLabel = computed(() => {
   switch (props.performance) {
@@ -68,20 +86,47 @@ const badgeBg = computed(() => {
   }
 })
 
-const badgeColor = computed(() => {
-  switch (props.performance) {
-    case 'elite':
-      return '#1D9E75'
-    case 'high':
-      return '#378ADD'
-    case 'medium':
-      return '#BA7517'
-    case 'low':
-      return '#E24B4A'
-    default:
-      return '#888780'
-  }
-})
+const badgeColor = computed(() => accentColor.value)
+
+function renderChart() {
+  if (!chartCanvas.value || !props.sparkline?.length) return
+  if (chartInstance) chartInstance.destroy()
+
+  chartInstance = new Chart(chartCanvas.value, {
+    type: 'line',
+    data: {
+      labels: props.sparkline.map((d) => d.date),
+      datasets: [
+        {
+          data: props.sparkline.map((d) => d.value),
+          borderColor: accentColor.value,
+          borderWidth: 1.5,
+          pointRadius: 0,
+          fill: true,
+          backgroundColor: accentColor.value + '20',
+          tension: 0.4,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { enabled: false } },
+      scales: {
+        x: { display: false },
+        y: { display: false },
+      },
+      animation: false,
+    },
+  })
+}
+
+onMounted(() => renderChart())
+watch(
+  () => props.sparkline,
+  () => renderChart(),
+  { deep: true },
+)
 </script>
 
 <style scoped>
@@ -136,5 +181,10 @@ const badgeColor = computed(() => {
 .metric-label {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.35);
+}
+
+.sparkline-container {
+  margin-top: 0.5rem;
+  height: 40px;
 }
 </style>
