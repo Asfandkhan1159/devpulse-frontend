@@ -9,7 +9,7 @@ export function useMetrics() {
 
   const projects = ref<{ id: number; name: string; provider: string }[]>([])
   const selectedProject = ref<{ id: number; name: string; provider: string } | null>(null)
-  const days = ref<number>(30)
+  const days = ref<number>(90)
 
   //watch
   watch(selectedProject, (newVal) => {
